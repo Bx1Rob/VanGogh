@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painting Details - Van Gogh Gallery</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="paintings.js"></script>
+    <style>
+        .painting-detail {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .painting-header {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .painting-image {
+            width: 100%;
+            height: 100vh;
+            object-fit: cover;
+            opacity: 0;
+            transform: scale(1.1);
+            transition: opacity 1.5s ease-out, transform 1.5s ease-out;
+            animation: panZoom 20s ease-in-out infinite alternate;
+            position: sticky;
+            top: 0;
+        }
+
+        .painting-image.pause-animation {
+            animation-play-state: paused;
+        }
+
+        .painting-image.fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+
+        @keyframes panZoom {
+            0% {
+                transform: scale(1.1) translate(0, 0);
+            }
+            25% {
+                transform: scale(1.15) translate(-2%, -1%);
+            }
+            50% {
+                transform: scale(1.1) translate(2%, 1%);
+            }
+            75% {
+                transform: scale(1.15) translate(1%, -2%);
+            }
+            100% {
+                transform: scale(1.1) translate(-1%, 2%);
+            }
+        }
+
+        .painting-image.visible {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .painting-title-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 72px;
+            font-weight: 600;
+            text-align: center;
+            opacity: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            transition: opacity 2s ease-out, transform 1.5s ease-out, color 1.5s ease-out, font-size 1.5s ease-out;
+            z-index: 2;
+            width: 80%;
+            max-width: 1200px;
+        }
+
+        .painting-title-overlay.visible {
+            opacity: 1;
+        }
+
+        .painting-title-overlay.fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .painting-title-overlay.morphed {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translate(-50%, 0);
+            color: #1d1d1f;
+            font-size: 48px;
+            text-shadow: none;
+        }
+
+        .painting-info {
+            width: 100%;
+            padding: calc(var(--spacing-unit) * 8) calc(var(--spacing-unit) * 4);
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+            background: transparent;
+            position: relative;
+        }
+
+        .painting-info.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .info-grid {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: calc(var(--spacing-unit) * 6);
+            align-items: start;
+            background: transparent;
+        }
+
+        .painting-thumbnail {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1;
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: none;
+            opacity: 0;
+            transform: translateX(-50px);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+            background: transparent;
+        }
+
+        .painting-thumbnail.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .info-content {
+            display: flex;
+            flex-direction: column;
+            gap: calc(var(--spacing-unit) * 4);
+        }
+
+        .painting-info h1 {
+            font-size: 48px;
+            font-weight: 600;
+            margin: 0;
+            color: #1d1d1f;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .painting-info h1.visible {
+            opacity: 1;
+        }
+
+        .painting-meta {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: calc(var(--spacing-unit) * 2);
+            margin-bottom: calc(var(--spacing-unit) * 4);
+        }
+
+        .painting-meta p {
+            margin: 0;
+            color: var(--secondary-color);
+            font-size: 18px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        .painting-meta p.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .painting-description {
+            font-size: 24px;
+            line-height: 1.6;
+            color: #1d1d1f;
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+
+        .painting-description.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .map-section {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+
+        .map-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .map-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 0;
+        }
+
+        .map-control-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .map-control-button:hover {
+            background: #f8f8f8;
+        }
+
+        .map-control-button.active {
+            background: #e8e8e8;
+            border-color: rgba(0,0,0,0.4);
+        }
+
+        @keyframes flyPlane {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            100% {
+                transform: translate(var(--end-x), var(--end-y)) rotate(var(--end-rotation));
+            }
+        }
+
+        .plane-icon {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff0000"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 1000;
+            animation: flyPlane 3s ease-in-out forwards;
+            opacity: 0;
+        }
+
+        .map-label-content {
+            font-size: 16px;
+            text-align: center;
+            white-space: nowrap;
+            pointer-events: auto;
+            margin-top: 5px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px white;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .map-label-content.visible {
+            opacity: 1;
+        }
+
+        .map-label-content.created {
+            color: #2c3e50;
+        }
+
+        .map-label-content.displayed {
+            color: #2c3e50;
+        }
+
+        .map-label-content:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 1024px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: calc(var(--spacing-unit) * 4);
+            }
+
+            .painting-thumbnail {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+
+            .info-content {
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .painting-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .painting-info h1 {
+                font-size: 36px;
+            }
+
+            .painting-description {
+                font-size: 20px;
+            }
+
+            .painting-title-overlay {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container">
+        <div class="nav-content">
+            <a href="index.html" class="logo">Van Gogh</a>
+            <ul class="nav-links">
+                <li><a href="gallery.html">Gallery</a></li>
+                <li><a href="index.html#about">About</a></li>
+                <li><a href="index.html#timeline">Timeline</a></li>
+                <li><a href="index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="painting-detail">
+        <div class="painting-header">
+            <img id="painting-image" class="painting-image" src="" alt="">
+            <div id="painting-title-overlay" class="painting-title-overlay"></div>
+        </div>
+
+        <div class="painting-info">
+            <div class="info-grid">
+                <img id="painting-thumbnail" class="painting-thumbnail" src="" alt="">
+                <div class="info-content">
+                    <h1 id="painting-title"></h1>
+                    <div class="painting-meta">
+                        <p id="painting-year"></p>
+                        <p id="painting-id"></p>
+                        <p id="painting-created"></p>
+                        <p id="painting-displayed"></p>
+                    </div>
+                    <div class="painting-description" id="painting-description"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-section">
+            <div id="map" class="map-container"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Van Gogh Gallery</h3>
+                <p>Celebrating the legacy of Vincent van Gogh</p>
+            </div>
+            <div class="footer-section">
+                <h3>Contact</h3>
+                <p>Email: bx1rob@gmail.com</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 Bx1 Rob's Gallery. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Get painting data from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const paintingId = urlParams.get('id');
+
+        // Painting locations data
+        const paintingLocations = {
+            "F612": { // The Starry Night
+                created: { lat: 43.7887, lng: 4.8316, name: "Saint-Rémy-de-Provence, France" },
+                displayed: { lat: 40.7615, lng: -73.9783, name: "Museum of Modern Art (MoMA), New York" }
+            },
+            "F467": { // Café Terrace at Night
+                created: { lat: 43.6767, lng: 4.6278, name: "Arles, France" },
+                displayed: { lat: 52.0956, lng: 5.8174, name: "Kröller-Müller Museum, Otterlo" }
+            },
+            "F608": { // Irises
+                created: { lat: 43.7887, lng: 4.8316, name: "Saint-Rémy-de-Provence, France" },
+                displayed: { lat: 34.078, lng: -118.4742, name: "J. Paul Getty Museum, Los Angeles" }
+            },
+            "F754": { // Portrait of Dr. Gachet
+                created: { lat: 49.0716, lng: 2.1698, name: "Auvers-sur-Oise, France" },
+                displayed: { lat: 48.86, lng: 2.3266, name: "Musée d'Orsay, Paris" }
+            },
+            "F454": { // Sunflowers
+                created: { lat: 43.6767, lng: 4.6278, name: "Arles, France" },
+                displayed: { lat: 51.509, lng: -0.1288, name: "National Gallery, London" }
+            },
+            "F482": { // Bedroom in Arles
+                created: { lat: 43.6767, lng: 4.6278, name: "Arles, France" },
+                displayed: { lat: 52.3583, lng: 4.8811, name: "Van Gogh Museum, Amsterdam" }
+            },
+            "F82": { // The Potato Eaters
+                created: { lat: 51.47, lng: 5.5528, name: "Nuenen, Netherlands" },
+                displayed: { lat: 52.3583, lng: 4.8811, name: "Van Gogh Museum, Amsterdam" }
+            },
+            "F474": { // Starry Night Over the Rhône
+                created: { lat: 43.6767, lng: 4.6278, name: "Arles, France" },
+                displayed: { lat: 48.86, lng: 2.3266, name: "Musée d'Orsay, Paris" }
+            },
+            "F463": { // The Night Café
+                created: { lat: 43.6767, lng: 4.6278, name: "Arles, France" },
+                displayed: { lat: 41.3085, lng: -72.931, name: "Yale University Art Gallery, New Haven" }
+            },
+            "F779": { // Wheatfield with Crows
+                created: { lat: 49.0716, lng: 2.1698, name: "Auvers-sur-Oise, France" },
+                displayed: { lat: 52.3583, lng: 4.8811, name: "Van Gogh Museum, Amsterdam" }
+            },
+            "F671": { // Almond Blossom
+                created: { lat: 43.7887, lng: 4.8316, name: "Saint-Rémy-de-Provence, France" },
+                displayed: { lat: 52.3583, lng: 4.8811, name: "Van Gogh Museum, Amsterdam" }
+            },
+            "F527": { // Self-Portrait with Bandaged Ear
+                created: { lat: 43.6767, lng: 4.6278, name: "Arles, France" },
+                displayed: { lat: 51.5118, lng: -0.1175, name: "Courtauld Gallery, London" }
+            },
+            "F789": { // The Church at Auvers
+                created: { lat: 49.0716, lng: 2.1698, name: "Auvers-sur-Oise, France" },
+                displayed: { lat: 48.86, lng: 2.3266, name: "Musée d'Orsay, Paris" }
+            }
+        };
+
+        // Museum place IDs for direct links
+        const museumPlaceIds = {
+            "Museum of Modern Art (MoMA), New York": "ChIJKxXGxJ9ZwokR5LQxHhqD5kY",
+            "Kröller-Müller Museum, Otterlo": "ChIJn4YwXxJqxkcR5LQxHhqD5kY",
+            "J. Paul Getty Museum, Los Angeles": "ChIJn4YwXxJqxkcR5LQxHhqD5kY",
+            "Musée d'Orsay, Paris": "ChIJn4YwXxJqxkcR5LQxHhqD5kY",
+            "National Gallery, London": "ChIJn4YwXxJqxkcR5LQxHhqD5kY",
+            "Van Gogh Museum, Amsterdam": "ChIJn4YwXxJqxkcR5LQxHhqD5kY",
+            "Yale University Art Gallery, New Haven": "ChIJn4YwXxJqxkcR5LQxHhqD5kY",
+            "Courtauld Gallery, London": "ChIJn4YwXxJqxkcR5LQxHhqD5kY"
+        };
+
+        // Painting descriptions
+        const paintingDescriptions = {
+            "F612": "In the quiet hours of a June night in 1889, Van Gogh painted what would become one of the most recognizable works in art history. From his room in the Saint-Paul-de-Mausole asylum, he looked out at the night sky over Saint-Rémy-de-Provence. The painting captures the emotional intensity of the moment, with swirling clouds and stars that seem to dance across the canvas. The cypress tree in the foreground, reaching skyward like a dark flame, adds a sense of movement and connection between earth and sky. This masterpiece reflects Van Gogh's ability to transform a simple night scene into a powerful expression of his inner world.",
+            "F467": "On a warm September evening in 1888, Van Gogh set up his easel in the Place du Forum in Arles. The painting captures the vibrant atmosphere of the café terrace, with its warm yellow light spilling onto the cobblestone street. The deep blue of the night sky creates a striking contrast with the artificial lighting, while the stars twinkle overhead. This work demonstrates Van Gogh's mastery of color and his ability to capture the essence of nightlife in Provence.",
+            "F608": "In the spring of 1889, while staying at the Saint-Paul-de-Mausole asylum, Van Gogh found inspiration in the hospital's garden. The irises, with their vibrant purple blooms, became the subject of this painting. He carefully observed their natural forms, capturing the delicate curves of their petals and the rich variations in their color. The painting shows his attention to detail and his ability to find beauty in the natural world, even during a difficult period in his life.",
+            "F754": "In the final months of his life, Van Gogh painted this portrait of Dr. Paul Gachet, the physician who cared for him in Auvers-sur-Oise. The doctor's thoughtful expression and the melancholic atmosphere of the painting reflect the complex relationship between artist and physician. The background, with its swirling patterns, suggests the emotional intensity of their connection. This portrait stands as a testament to Van Gogh's ability to capture the psychological depth of his subjects.",
+            "F454": "During the summer of 1888, Van Gogh created a series of sunflower paintings to decorate the Yellow House in Arles, where he hoped to establish an artists' community. These vibrant works, with their bold yellows and expressive brushstrokes, celebrate the beauty of these common flowers. The painting captures the energy and vitality of the sunflowers, their petals seeming to reach out toward the viewer. This work has become one of Van Gogh's most beloved and recognizable paintings.",
+            "F482": "In October 1888, Van Gogh painted his bedroom in the Yellow House in Arles. The simple room, with its wooden furniture and personal belongings, reflects his desire to create a comfortable space for himself and his hoped-for guests. The painting's perspective and use of color create a sense of calm and order, while the slightly tilted angles add a touch of personality. This work offers a rare glimpse into Van Gogh's private world.",
+            "F82": "In 1885, while living in Nuenen, Van Gogh created this powerful depiction of peasant life. The painting shows a family gathered around their simple meal of potatoes, their faces weathered by years of hard work. The dark, earthy tones and rough brushstrokes reflect the harsh reality of rural life. This work demonstrates Van Gogh's early interest in social realism and his ability to capture the dignity of ordinary people.",
+            "F474": "In September 1888, Van Gogh painted this night scene of the Rhône River in Arles. The painting captures the peaceful atmosphere of the river at night, with the city lights reflecting on the water's surface. The stars twinkle in the deep blue sky, creating a sense of tranquility. This work shows Van Gogh's fascination with night scenes and his ability to capture the subtle effects of artificial light.",
+            "F463": "In September 1888, Van Gogh painted the interior of the Café de la Gare in Arles. The painting captures the late-night atmosphere of the café, with its empty tables and chairs. The warm colors and dramatic lighting create a sense of isolation and melancholy. This work demonstrates Van Gogh's ability to convey mood and atmosphere through color and composition.",
+            "F779": "In July 1890, just days before his death, Van Gogh painted this dramatic landscape in Auvers-sur-Oise. The painting shows a wheat field under a stormy sky, with crows flying overhead. The dark colors and turbulent brushstrokes reflect the artist's emotional state. This work has often been interpreted as a reflection of Van Gogh's inner turmoil during his final days.",
+            "F671": "In February 1890, Van Gogh painted this celebration of new life in Auvers-sur-Oise. The painting shows almond branches in bloom against a blue sky, created to mark the birth of his nephew. The delicate pink and white blossoms contrast with the clear blue background, creating a sense of hope and renewal. This work demonstrates Van Gogh's ability to find joy in nature's cycles.",
+            "F527": "In January 1889, after cutting off his ear, Van Gogh painted this self-portrait in Arles. The painting shows the artist with a bandaged ear, his expression calm but intense. The background's swirling patterns reflect his emotional state, while the warm colors of his face suggest resilience. This work stands as a powerful testament to Van Gogh's ability to confront his own image during a difficult period.",
+            "F789": "In June 1890, Van Gogh painted the church in Auvers-sur-Oise. The painting shows the Gothic church against a bright blue sky, with a path leading toward it. The distorted perspective and vibrant colors create a sense of movement and energy. This work reflects Van Gogh's interest in architectural subjects and his ability to transform familiar scenes into expressive works of art."
+        };
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            // Find the painting data
+            const painting = paintings.find(p => p.id === paintingId);
+            if (!painting) {
+                window.location.href = 'gallery.html';
+                return;
+            }
+
+            const locations = paintingLocations[paintingId];
+
+            // Update page content
+            document.title = `${painting.title} - Van Gogh Gallery`;
+            document.getElementById('painting-title').textContent = painting.title;
+            document.getElementById('painting-title-overlay').textContent = painting.title;
+            document.getElementById('painting-year').textContent = `Year: ${painting.year}`;
+            document.getElementById('painting-id').textContent = `Painting ID: ${painting.id}`;
+            document.getElementById('painting-created').textContent = `Created: ${locations.created.name}`;
+            document.getElementById('painting-displayed').textContent = `Displayed: ${painting.location}`;
+            document.getElementById('painting-image').src = painting.image;
+            document.getElementById('painting-image').alt = painting.title;
+            document.getElementById('painting-thumbnail').src = painting.image;
+            document.getElementById('painting-thumbnail').alt = painting.title;
+            document.getElementById('painting-description').textContent = painting.personalDescription;
+
+            // Initialize map
+            const map = L.map('map', {
+                dragging: false,
+                touchZoom: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+                zoomControl: false
+            });
+
+            // Calculate bounds to include both locations
+            const bounds = L.latLngBounds([
+                [locations.created.lat, locations.created.lng],
+                [locations.displayed.lat, locations.displayed.lng]
+            ]);
+            
+            // Add padding to the bounds
+            bounds.pad(0.5);
+            
+            // Set the view to fit the bounds
+            map.fitBounds(bounds);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add map control button
+            const controlButton = document.createElement('button');
+            controlButton.className = 'map-control-button';
+            controlButton.textContent = 'Enable Map Interaction';
+            document.querySelector('.map-container').appendChild(controlButton);
+
+            controlButton.addEventListener('click', () => {
+                if (map.dragging.enabled()) {
+                    map.dragging.disable();
+                    map.touchZoom.disable();
+                    map.scrollWheelZoom.disable();
+                    map.doubleClickZoom.disable();
+                    map.boxZoom.disable();
+                    map.keyboard.disable();
+                    controlButton.textContent = 'Enable Map Interaction';
+                    controlButton.classList.remove('active');
+                } else {
+                    map.dragging.enable();
+                    map.touchZoom.enable();
+                    map.scrollWheelZoom.enable();
+                    map.doubleClickZoom.enable();
+                    map.boxZoom.enable();
+                    map.keyboard.enable();
+                    controlButton.textContent = 'Disable Map Interaction';
+                    controlButton.classList.add('active');
+                }
+            });
+
+            // Add creation marker and label
+            const createdMarker = L.marker([locations.created.lat, locations.created.lng])
+                .addTo(map)
+                .on('click', () => {
+                    window.open(`https://www.google.com/maps/@${locations.created.lat},${locations.created.lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+                });
+
+            const createdLabel = L.marker([locations.created.lat - 0.02, locations.created.lng], {
+                icon: L.divIcon({
+                    className: 'map-label',
+                    html: `<div class="map-label-content created" style="cursor: pointer;">Created<br>${locations.created.name}</div>`,
+                    iconSize: [200, 50],
+                    iconAnchor: [100, 0]
+                })
+            }).addTo(map)
+            .on('click', () => {
+                window.open(`https://www.google.com/maps/@${locations.created.lat},${locations.created.lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+            });
+
+            // Add display marker and label
+            const displayedMarker = L.marker([locations.displayed.lat, locations.displayed.lng])
+                .addTo(map)
+                .on('click', () => {
+                    const placeId = museumPlaceIds[locations.displayed.name];
+                    if (placeId) {
+                        window.open(`https://www.google.com/maps/place/?q=place_id:${placeId}`, '_blank');
+                    } else {
+                        window.open(`https://www.google.com/maps/@${locations.displayed.lat},${locations.displayed.lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+                    }
+                });
+
+            const displayedLabel = L.marker([locations.displayed.lat - 0.02, locations.displayed.lng], {
+                icon: L.divIcon({
+                    className: 'map-label',
+                    html: `<div class="map-label-content displayed" style="cursor: pointer;">Currently Displayed<br>${locations.displayed.name}</div>`,
+                    iconSize: [200, 50],
+                    iconAnchor: [100, 0]
+                })
+            }).addTo(map)
+            .on('click', () => {
+                const placeId = museumPlaceIds[locations.displayed.name];
+                if (placeId) {
+                    window.open(`https://www.google.com/maps/place/?q=place_id:${placeId}`, '_blank');
+                } else {
+                    window.open(`https://www.google.com/maps/@${locations.displayed.lat},${locations.displayed.lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+                }
+            });
+
+            // Add line between points
+            const line = L.polyline([
+                [locations.created.lat, locations.created.lng],
+                [locations.displayed.lat, locations.displayed.lng]
+            ], {
+                color: 'red',
+                weight: 2,
+                opacity: 0.7,
+                dashArray: '5, 10'
+            }).addTo(map);
+
+            // Set up Intersection Observer for scroll animations
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        
+                        // If this is the map section, start the plane animation
+                        if (entry.target.classList.contains('map-section')) {
+                            setTimeout(() => {
+                                // Create plane element
+                                const plane = document.createElement('div');
+                                plane.className = 'plane-icon';
+                                document.querySelector('#map').appendChild(plane);
+
+                                // Calculate the end position and rotation
+                                const startPoint = map.latLngToContainerPoint([locations.created.lat, locations.created.lng]);
+                                const endPoint = map.latLngToContainerPoint([locations.displayed.lat, locations.displayed.lng]);
+                                const dx = endPoint.x - startPoint.x;
+                                const dy = endPoint.y - startPoint.y;
+                                const rotation = Math.atan2(dy, dx) * (180 / Math.PI);
+
+                                // Set CSS variables for animation
+                                plane.style.setProperty('--end-x', `${dx}px`);
+                                plane.style.setProperty('--end-y', `${dy}px`);
+                                plane.style.setProperty('--end-rotation', `${rotation}deg`);
+                                plane.style.left = `${startPoint.x}px`;
+                                plane.style.top = `${startPoint.y}px`;
+                                plane.style.opacity = '1';
+
+                                // Show labels after plane animation
+                                setTimeout(() => {
+                                    document.querySelector('.map-label-content.created').classList.add('visible');
+                                    document.querySelector('.map-label-content.displayed').classList.add('visible');
+                                    plane.remove();
+                                }, 3000);
+                            }, 500);
+                        }
+                    }
+                });
+            }, {
+                threshold: 0.2,
+                rootMargin: '-50px'
+            });
+
+            // Observe elements for scroll animations
+            observer.observe(document.getElementById('painting-image'));
+            observer.observe(document.querySelector('.painting-info'));
+            observer.observe(document.getElementById('painting-thumbnail'));
+            observer.observe(document.getElementById('painting-description'));
+            observer.observe(document.querySelector('.map-section'));
+
+            // Observe meta information paragraphs with staggered delay
+            const metaParagraphs = document.querySelectorAll('.painting-meta p');
+            metaParagraphs.forEach((p, index) => {
+                observer.observe(p);
+                p.style.transitionDelay = `${index * 0.2}s`;
+            });
+
+            // Initial visibility of painting image and title
+            document.getElementById('painting-image').classList.add('visible');
+            setTimeout(() => {
+                document.getElementById('painting-title-overlay').classList.add('visible');
+            }, 1000);
+
+            // Set up scroll listener for fade out effect and title morph
+            window.addEventListener('scroll', () => {
+                const paintingImage = document.getElementById('painting-image');
+                const titleOverlay = document.getElementById('painting-title-overlay');
+                const infoTitle = document.getElementById('painting-title');
+                const scrollPosition = window.scrollY;
+                const windowHeight = window.innerHeight;
+                
+                // Start fading out when we've scrolled 20% of the viewport height
+                if (scrollPosition > windowHeight * 0.2) {
+                    const opacity = 1 - ((scrollPosition - (windowHeight * 0.2)) / (windowHeight * 0.8));
+                    paintingImage.style.opacity = Math.max(0, opacity);
+                    
+                    // Make title fade out faster and earlier
+                    const titleOpacity = 1 - ((scrollPosition - (windowHeight * 0.2)) / (windowHeight * 0.3));
+                    titleOverlay.style.opacity = Math.max(0, titleOpacity);
+                    
+                    // Start showing the info title
+                    if (scrollPosition > windowHeight * 0.3) {
+                        infoTitle.classList.add('visible');
+                        // Pause the animation when reaching the next section
+                        paintingImage.classList.add('pause-animation');
+                    } else {
+                        infoTitle.classList.remove('visible');
+                        paintingImage.classList.remove('pause-animation');
+                    }
+                } else {
+                    paintingImage.style.opacity = 1;
+                    titleOverlay.style.opacity = 1;
+                    infoTitle.classList.remove('visible');
+                    paintingImage.classList.remove('pause-animation');
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
